@@ -1,0 +1,423 @@
+<title>이번 생은</title>
+<meta name="description" content="지구의 동물 중 하나로 무작위로 태어나 그 일생을 살아보는 시뮬레이션">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&family=Gowun+Dodum&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: 관찰 노트. 세로 한 줄 랜딩 → 추첨 → 일생(서식지 무대 + 궤적 + 형제 격자) → 생명 기록. 무대 색은 서식지를 따른다. */
+:root {
+  --bg: #EEF1EC;
+  --surface: #FAFBF8;
+  --sunk: #E4E9E2;
+  --ink: #17201B;
+  --muted: #5A665F;
+  --line: #D2D9D1;
+  --accent: #2E6B4F;
+  --you: #C9741E;
+  --pink: #E7B9B1;
+  --soil: #EAE2D5; --sea: #DCEAEF; --sky: #E4EDF7; --farm: #F0EAD3; --city: #E6E8E5;
+  --c-soil: #8A6A48; --c-sea: #2F7A93; --c-sky: #5B7FB8; --c-farm: #B48A2C; --c-city: #6F7470;
+  --art-fill: var(--accent);
+  --art-accent: var(--you);
+  --habitat: var(--bg);
+  --f-display: "Gowun Batang", "Nanum Myeongjo", "AppleMyungjo", serif;
+  --f-body: "Gowun Dodum", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0F1513; --surface: #161E1A; --sunk: #0B100E; --ink: #E5EBE6; --muted: #93A099; --line: #2A3530;
+    --accent: #6FC29A; --you: #F0A24A; --pink: #B9837B;
+    --soil: #19150F; --sea: #0C1A20; --sky: #111823; --farm: #1A1810; --city: #151716;
+    --c-soil: #C29B70; --c-sea: #5FB3CF; --c-sky: #8EADE0; --c-farm: #DDB65A; --c-city: #A3A9A4;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0F1513; --surface: #161E1A; --sunk: #0B100E; --ink: #E5EBE6; --muted: #93A099; --line: #2A3530;
+  --accent: #6FC29A; --you: #F0A24A; --pink: #B9837B;
+  --soil: #19150F; --sea: #0C1A20; --sky: #111823; --farm: #1A1810; --city: #151716;
+  --c-soil: #C29B70; --c-sea: #5FB3CF; --c-sky: #8EADE0; --c-farm: #DDB65A; --c-city: #A3A9A4;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { background: var(--habitat); color: var(--ink); transition: background .9s ease; }
+body { font-family: var(--f-body); font-size: 16px; line-height: 1.65; transition: background .9s ease; -webkit-font-smoothing: antialiased; }
+.wrap { max-width: 1040px; margin: 0 auto; padding-inline: 20px; padding-block: 0 72px; }
+h1, h2, h3 { font-family: var(--f-display); font-weight: 700; text-wrap: balance; margin: 0; }
+p { margin: 0; }
+button { font: inherit; color: inherit; cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.mono { font-family: var(--f-mono); font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+.label { font-size: 12px; letter-spacing: .08em; color: var(--muted); }
+.btn { border: 1px solid var(--ink); background: var(--ink); color: var(--bg); padding: 13px 24px; border-radius: 999px; font-size: 16px; transition: transform .15s; }
+.btn:hover { transform: translateY(-1px); }
+.btn.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: var(--surface); }
+.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex: none; }
+
+/* ---------- 랜딩 ---------- */
+.nav { display: flex; justify-content: space-between; align-items: center; padding-block: 18px; gap: 12px; flex-wrap: wrap; }
+.brand { font-family: var(--f-display); font-weight: 700; font-size: 19px; }
+.nav nav { display: flex; gap: 16px; font-size: 14px; flex-wrap: wrap; }
+.nav a { color: var(--muted); text-decoration: none; }
+.nav a:hover { color: var(--ink); }
+.hero { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 32px; align-items: center; padding-block: 40px 36px; }
+.hero h1 { font-size: clamp(60px, 11vw, 128px); line-height: .98; letter-spacing: -.025em; }
+.hero h1 span { color: var(--you); }
+.hero .lead { font-size: clamp(17px, 2.1vw, 21px); max-width: 30em; margin-top: 22px; }
+.hero .odds { font-family: var(--f-display); font-size: clamp(19px, 2.6vw, 25px); margin-top: 18px; }
+.hero .odds b { color: var(--accent); }
+.hero .cta { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 26px; }
+.carousel { border-radius: 22px; background: var(--surface); border: 1px solid var(--line); padding: 14px 14px 18px; display: grid; gap: 6px; }
+.carousel .art { height: 200px; border-radius: 14px; overflow: hidden; }
+.carousel .art svg, .reveal .art svg, .stage-art svg { overflow: hidden; }
+.carousel .cap { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; padding-inline: 6px; flex-wrap: wrap; }
+.carousel .nm { font-family: var(--f-display); font-weight: 700; font-size: 22px; }
+.carousel .pr { font-family: var(--f-mono); font-size: 13px; color: var(--muted); }
+.counter { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.counter > div { background: var(--surface); padding: 16px 18px; display: grid; gap: 2px; min-width: 0; }
+.counter .num { font-family: var(--f-mono); font-size: clamp(20px, 2.8vw, 28px); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.counter small { font-size: 13px; color: var(--muted); }
+section.block { padding-block: 56px 4px; display: grid; gap: 20px; scroll-margin-top: 16px; }
+section.block > header { display: grid; gap: 6px; max-width: 44em; }
+section.block h2 { font-size: clamp(25px, 3.4vw, 34px); }
+section.block header p { color: var(--muted); font-size: 15px; }
+
+/* 머릿수 사다리 */
+.ladder { background: var(--surface); border: 1px solid var(--line); border-radius: 18px; padding: 18px 18px 10px; overflow-x: auto; }
+.ladder svg { display: block; width: 100%; min-width: 560px; height: auto; }
+
+.modes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.mode { text-align: left; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 18px; display: grid; gap: 10px; align-content: start; transition: border-color .2s; }
+.mode:hover { border-color: var(--muted); }
+.mode[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+.mode .name { font-family: var(--f-display); font-weight: 700; font-size: 21px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.mode .desc { font-size: 14px; color: var(--muted); }
+.mode .h { font-size: 14px; }
+.mode .h b { font-family: var(--f-mono); font-weight: 500; color: var(--accent); }
+.bar-mini { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--line); }
+.bar-mini span { display: block; height: 100%; }
+.start-row { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.river { width: 100%; height: 160px; display: block; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); }
+.notes { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.note { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; display: grid; gap: 6px; font-size: 15px; }
+.note .who { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.dex { display: grid; grid-template-columns: repeat(auto-fill, minmax(168px, 1fr)); gap: 12px; }
+.card { border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px 14px; display: grid; gap: 4px; background: var(--surface); min-width: 0; align-content: start; }
+.card.locked { background: transparent; border-style: dashed; }
+.card .art { height: 70px; }
+.card.locked .art { filter: grayscale(1); opacity: .22; }
+.card .cn { font-family: var(--f-display); font-weight: 700; font-size: 17px; display: flex; align-items: center; gap: 6px; }
+.card.locked .cn { color: var(--muted); }
+.card .cp { font-size: 12px; color: var(--muted); font-family: var(--f-mono); }
+.card .fact { font-size: 13px; color: var(--muted); line-height: 1.5; }
+.card.human:not(.locked) { border-color: var(--you); }
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 560px; }
+th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-weight: 400; color: var(--muted); font-size: 12px; letter-spacing: .06em; }
+td.n { font-family: var(--f-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+footer { padding-block: 56px 0; font-size: 13px; color: var(--muted); display: grid; gap: 6px; }
+
+/* ---------- 추첨 ---------- */
+.draw { min-height: 80vh; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 32px; align-items: center; padding-block: 48px; }
+.draw h2 { font-size: clamp(22px, 3vw, 28px); }
+.steps { display: grid; gap: 10px; }
+.steps-col { display: grid; gap: 18px; align-content: center; }
+.step { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 12px; align-items: baseline; padding: 14px 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); opacity: .25; transition: opacity .5s, border-color .5s; }
+.step.on { opacity: 1; }
+.step .lv { font-size: 12px; color: var(--muted); letter-spacing: .08em; }
+.step .v { font-family: var(--f-display); font-size: 22px; font-weight: 700; min-height: 1.4em; }
+.step .p { font-family: var(--f-mono); font-size: 13px; color: var(--muted); text-align: right; }
+.step.final.on { border-color: var(--accent); }
+.reveal { border-radius: 22px; border: 1px solid var(--line); background: var(--surface); overflow: hidden; display: grid; }
+.reveal .art { height: 260px; background: var(--habitat); }
+.reveal .body { padding: 22px 24px 24px; display: grid; gap: 14px; }
+.reveal .title { font-size: clamp(26px, 3.6vw, 38px); line-height: 1.2; }
+.reveal .sci { font-style: italic; color: var(--muted); font-size: 14px; }
+.reveal.wait .body > *:not(.label) { opacity: 0; }
+.reveal.wait .art { filter: blur(10px) grayscale(1); opacity: .4; }
+.reveal .art, .reveal .body > * { transition: opacity .7s, filter .9s; }
+.facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.facts > div { display: grid; gap: 2px; min-width: 0; }
+.facts .fv { font-size: 16px; overflow-wrap: anywhere; }
+
+/* ---------- 일생 ---------- */
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 6; background: color-mix(in srgb, var(--habitat) 88%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+.bar .in { max-width: 1040px; margin: 0 auto; padding: 10px 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.bar .who { display: flex; align-items: center; gap: 10px; margin-right: auto; min-width: 0; }
+.bar .who .art { width: 46px; height: 34px; flex: none; }
+.bar .who b { font-family: var(--f-display); font-size: 18px; display: block; line-height: 1.2; }
+.bar .who small { font-family: var(--f-mono); font-size: 13px; color: var(--muted); }
+.ctl { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 12px; font-size: 14px; min-width: 40px; }
+.ctl[aria-pressed="true"] { border-color: var(--ink); background: var(--ink); color: var(--bg); }
+.ctls { display: flex; gap: 6px; flex-wrap: wrap; }
+.stage-wrap { position: relative; margin-top: 18px; border-radius: 22px; overflow: hidden; border: 1px solid var(--line); background: var(--surface); }
+.stage-art { height: clamp(230px, 40vh, 380px); background: var(--habitat); }
+.stage-wrap.lens .stage-art { -webkit-mask-image: radial-gradient(circle at 50% 52%, #000 34%, transparent 35.5%); mask-image: radial-gradient(circle at 50% 52%, #000 34%, transparent 35.5%); }
+.stage-wrap.lens::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(circle at 50% 52%, transparent 34%, var(--line) 34.2%, var(--line) 35.4%, transparent 35.6%); }
+.stage-tag { position: absolute; left: 14px; top: 14px; display: flex; gap: 6px; flex-wrap: wrap; z-index: 2; }
+.ruler { position: absolute; right: 16px; bottom: 14px; display: grid; justify-items: end; gap: 4px; font-size: 12px; color: var(--muted); z-index: 2; }
+.ruler i { display: block; height: 7px; width: 72px; border: 1.5px solid var(--muted); border-top: 0; }
+.stage-wrap.gone .stage-art { filter: grayscale(1); opacity: .4; transition: filter 1.4s, opacity 1.4s; }
+.life { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 28px; padding-block: 22px; }
+.scene { display: grid; gap: 16px; align-content: start; min-width: 0; }
+.now { font-family: var(--f-display); font-size: clamp(20px, 2.4vw, 25px); line-height: 1.55; min-height: 3.2em; }
+.now.sys { color: var(--accent); }
+.now.danger { color: var(--you); }
+.trail { display: grid; gap: 0; border-left: 1.5px solid var(--line); margin-left: 6px; }
+.trail .row { position: relative; padding: 6px 0 6px 18px; font-size: 15px; color: var(--muted); animation: rise .5s ease both; }
+.trail .row::before { content: ""; position: absolute; left: -5px; top: 14px; width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.trail .row.m { color: var(--ink); }
+.trail .row.m::before { background: var(--accent); }
+.trail .row.d::before { background: var(--you); }
+.trail .row.c::before { background: var(--ink); }
+.trail .row .t { font-family: var(--f-mono); font-size: 12px; margin-right: 8px; }
+@keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.side { display: grid; gap: 16px; align-content: start; min-width: 0; }
+.panel { border: 1px solid var(--line); border-radius: 16px; padding: 16px; background: var(--surface); display: grid; gap: 12px; }
+.stats { display: grid; gap: 10px; }
+.stat { display: grid; grid-template-columns: 72px minmax(0, 1fr) 30px; gap: 10px; align-items: center; font-size: 14px; }
+.stat .track { display: block; height: 8px; background: var(--sunk); border-radius: 4px; overflow: hidden; }
+.stat .fill { display: block; height: 100%; background: var(--accent); border-radius: 4px; transition: width .6s ease; }
+.stat.low .fill { background: var(--you); }
+.stat .val { font-family: var(--f-mono); font-size: 13px; text-align: right; color: var(--muted); }
+canvas.sib { width: 100%; height: 190px; display: block; }
+.tl { display: flex; gap: 3px; }
+.tl .seg { flex: 1; height: 10px; background: var(--sunk); border-radius: 3px; overflow: hidden; }
+.tl .seg i { display: block; height: 100%; width: 0; background: var(--ink); }
+.tl-labels { display: flex; gap: 3px; font-size: 11px; color: var(--muted); }
+.tl-labels span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sheet { position: fixed; left: 50%; bottom: max(16px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); width: min(620px, calc(100% - 32px)); z-index: 10; border: 1px solid var(--ink); border-radius: 20px; padding: 20px; background: var(--surface); display: grid; gap: 12px; box-shadow: 0 18px 50px rgba(0, 0, 0, .18); animation: rise .35s ease both; }
+.sheet .q { font-family: var(--f-display); font-size: 20px; font-weight: 700; }
+.opts { display: grid; gap: 8px; }
+.opts button { text-align: left; border: 1px solid var(--line); background: var(--bg); border-radius: 12px; padding: 12px 14px; }
+.opts button:hover { border-color: var(--ink); }
+textarea { width: 100%; min-height: 64px; resize: vertical; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; background: var(--bg); color: var(--ink); font: inherit; }
+
+/* ---------- 생명 기록 ---------- */
+.end { display: grid; gap: 28px; padding-block: 36px; }
+.share { border-radius: 24px; background: var(--ink); color: var(--bg); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); overflow: hidden; }
+.share .art { min-height: 230px; color: var(--bg); background: color-mix(in srgb, var(--bg) 8%, transparent); }
+.share .txt { padding: 28px; display: grid; gap: 14px; align-content: center; }
+.share .k { font-size: 12px; letter-spacing: .1em; opacity: .7; }
+.share .big { font-family: var(--f-display); font-size: clamp(24px, 3.6vw, 34px); line-height: 1.35; font-weight: 700; }
+.share .quote { font-size: 16px; opacity: .9; }
+.share .row { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-family: var(--f-mono); font-size: 13px; opacity: .75; }
+.end-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.end-grid > div { display: grid; gap: 16px; min-width: 0; }
+.journey { display: grid; border-left: 1.5px solid var(--line); margin-left: 6px; }
+.journey .row { position: relative; padding: 7px 0 7px 20px; display: grid; grid-template-columns: 82px minmax(0, 1fr); gap: 10px; font-size: 15px; }
+.journey .row::before { content: ""; position: absolute; left: -5.5px; top: 15px; width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
+.journey .row.m::before { background: var(--accent); }
+.journey .row.d::before { background: var(--you); }
+.journey .row.c::before { background: var(--ink); }
+.journey .row.end::before { background: var(--ink); width: 11px; height: 11px; left: -6.5px; }
+.journey .row .t { font-family: var(--f-mono); font-size: 12px; color: var(--muted); padding-top: 3px; }
+.journey .row.stage { color: var(--muted); font-size: 13px; letter-spacing: .04em; }
+.curve svg { display: block; width: 100%; height: auto; }
+.factlist { display: grid; gap: 8px; font-size: 15px; padding-left: 18px; margin: 0; }
+
+@media (max-width: 860px) {
+  .hero, .draw, .life, .end-grid, .share { grid-template-columns: minmax(0, 1fr); }
+  .modes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .carousel .art { height: 170px; }
+}
+@media (max-width: 560px) {
+  .counter, .modes { grid-template-columns: minmax(0, 1fr); }
+  .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .step { grid-template-columns: 52px minmax(0, 1fr); }
+  .step .p { grid-column: 2; text-align: left; }
+  .journey .row { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .bar .who .art { display: none; }
+}
+
+/* ---------- 그림 ---------- */
+.art svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.bob { animation: bob 3.4s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.old { filter: saturate(.6); }
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+.bub { animation: up 5s linear infinite; }
+@keyframes up { from { transform: translateY(0); opacity: .5; } to { transform: translateY(-120px); opacity: 0; } }
+.drift { animation: drift 14s ease-in-out infinite alternate; }
+@keyframes drift { from { transform: translateX(-8px); } to { transform: translateX(14px); } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+
+<div id="v-landing">
+  <div class="wrap">
+    <div class="nav">
+      <span class="brand">이번 생은</span>
+      <nav><a href="#start">태어나기</a><a href="#ladder">지구의 동물</a><a href="#river">생명의 강</a><a href="#dex">도감</a><a href="#data">데이터</a></nav>
+    </div>
+
+    <div class="hero">
+      <div>
+        <h1>이번<br>생은<span>.</span></h1>
+        <p class="lead">지구에는 동물이 약 <b>5해 마리</b> 살아요. 그중 하나로 태어나, 그 생명의 일생을 처음부터 끝까지 살아봅니다. 사람도 그중 한 종이에요.</p>
+        <p class="odds">진짜 머릿수로 뽑으면, 사람일 확률은 <b id="human-odds">—</b></p>
+        <div class="cta"><button class="btn" id="go-hero">태어나기</button><span class="muted" style="font-size:14px" id="cta-mode">골고루 기준 · 한 생 약 3~6분</span></div>
+      </div>
+      <div class="carousel" aria-live="off">
+        <div class="art" id="car-art"></div>
+        <div class="cap"><span class="nm" id="car-name">—</span><span class="pr" id="car-pr">—</span></div>
+      </div>
+    </div>
+
+    <div class="counter">
+      <div><span class="label">이 페이지를 연 뒤 태어난 사람</span><span class="num" id="cnt-human">0명</span><small>초당 약 4.2명</small></div>
+      <div><span class="label">태어난 병아리</span><span class="num" id="cnt-chick">0마리</span><small>초당 약 2,400마리</small></div>
+      <div><span class="label">태어난 곤충 (추정)</span><span class="num" id="cnt-insect">0마리</span><small>초당 약 3.9조 마리</small></div>
+    </div>
+
+    <section class="block" id="start">
+      <header>
+        <span class="label">어떻게 뽑을까요</span>
+        <h2>뽑는 기준이 바뀌면, 세상이 다르게 보여요</h2>
+        <p>기준을 고르고 태어나 보세요. 어떤 기준이든 진짜 지구의 확률을 함께 알려 드려요.</p>
+      </header>
+      <div class="modes" id="modes"></div>
+      <div class="start-row">
+        <button class="btn" id="go">태어나기</button>
+        <span class="muted" style="font-size:14px">언제든 멈추거나 최대 8배 빠르게 넘길 수 있어요.</span>
+      </div>
+    </section>
+
+    <section class="block" id="ladder">
+      <header>
+        <span class="label">지구의 동물</span>
+        <h2>사람은 이 명단의 아래쪽에 있어요</h2>
+        <p>살아 있는 개체 수(추정)를 눈금 한 칸마다 1만 배씩 커지게 그렸어요. 막대가 한 칸 길면 1만 배 많다는 뜻이에요.</p>
+      </header>
+      <div class="ladder" id="ladder-chart"></div>
+    </section>
+
+    <section class="block" id="river">
+      <header>
+        <span class="label">생명의 강</span>
+        <h2>모두가 살다 간 생명이 흘러가요</h2>
+        <p>점 하나가 누군가의 한 번의 삶이에요. 주황색 점은 이 기기에서 당신이 산 삶이에요. 나머지는 예시이고, 서버를 연결하면 모두의 기록이 흐릅니다.</p>
+      </header>
+      <canvas class="river" id="river-canvas" aria-label="생명의 강: 종별 색으로 흐르는 기록 점들"></canvas>
+      <div class="notes" id="notes"></div>
+    </section>
+
+    <section class="block" id="dex">
+      <header>
+        <span class="label">도감</span>
+        <h2>살아 본 생명 <span class="mono" id="dex-count">0 / 20</span></h2>
+        <p>카드의 숫자는 지금 고른 기준으로 뽑힐 확률이에요. 사람으로 살면서 만난 동물도 표시돼요. 기록은 이 기기에만 저장돼요.</p>
+      </header>
+      <div class="dex" id="dex-grid"></div>
+    </section>
+
+    <section class="block" id="data">
+      <header>
+        <span class="label">데이터</span>
+        <h2>숫자는 어디서 왔나요</h2>
+        <p>동물 수는 과학자들 사이에서도 추정 범위가 아주 넓어요. 지금은 대략적인 중간값을 쓰고, 정식 버전에서 출처별 범위를 함께 보여드릴 거예요.</p>
+      </header>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>무리</th><th>살아 있는 수 (추정)</th><th>무게 (탄소, Gt)</th><th>참고</th></tr></thead>
+          <tbody id="data-rows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <footer>
+      <p>이번 생은 · 베타. 초등학생부터 볼 수 있도록, 죽음과 출하는 한 문장 사실로만 적어요.</p>
+      <p>무리 안의 대표종은 고르게 배분했어요. 예를 들어 곤충으로 뽑히면 개미, 모기, 하루살이, 꿀벌 중 하나로 살아요.</p>
+    </footer>
+  </div>
+</div>
+
+<div id="v-draw" hidden>
+  <div class="wrap draw">
+    <div class="steps-col">
+      <span class="label" id="draw-mode">—</span>
+      <h2>어떤 생명으로 태어날까요</h2>
+      <div class="steps" id="steps"></div>
+    </div>
+    <div class="reveal wait" id="reveal"></div>
+  </div>
+</div>
+
+<div id="v-life" hidden>
+  <div class="bar">
+    <div class="in">
+      <div class="who"><div class="art" id="b-art"></div><div><b id="b-name">—</b><small id="b-age">—</small></div></div>
+      <div class="ctls">
+        <button class="ctl" id="b-play" aria-label="멈추기">❚❚</button>
+        <button class="ctl" data-speed="1" aria-pressed="true">1×</button>
+        <button class="ctl" data-speed="2" aria-pressed="false">2×</button>
+        <button class="ctl" data-speed="4" aria-pressed="false">4×</button>
+        <button class="ctl" data-speed="8" aria-pressed="false">8×</button>
+        <button class="ctl" id="b-auto" aria-pressed="false">자동 선택</button>
+      </div>
+    </div>
+  </div>
+  <div class="wrap">
+    <div class="stage-wrap" id="stage-wrap">
+      <div class="stage-tag" id="stage-tag"></div>
+      <div class="art stage-art" id="stage-art"></div>
+      <div class="ruler" id="ruler"></div>
+    </div>
+    <div class="life">
+      <div class="scene">
+        <p class="now" id="now" aria-live="polite"></p>
+        <div class="trail" id="trail"></div>
+      </div>
+      <div class="side">
+        <div class="panel">
+          <span class="label">상태 (0~100)</span>
+          <div class="stats" id="stats"></div>
+        </div>
+        <div class="panel">
+          <span class="label" id="sib-label">같은 순간 태어난 형제</span>
+          <canvas class="sib" id="sib" aria-label="형제 점 격자: 꺼진 점은 삶을 마친 형제"></canvas>
+          <span class="muted" style="font-size:13px" id="sib-note"></span>
+        </div>
+        <div class="panel">
+          <span class="label">일생</span>
+          <div class="tl" id="tl"></div>
+          <div class="tl-labels" id="tl-labels"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="sheet-host"></div>
+</div>
+
+<div id="v-end" hidden>
+  <div class="wrap end" id="end"></div>
+</div>
+
+<script>window.SPECIES = {}; function registerSpecies(s) { window.SPECIES[s.id] = s; }</script>
+<script src="data/nematode.js"></script>
+<script src="data/copepod.js"></script>
+<script src="data/earthworm.js"></script>
+<script src="data/ant.js"></script>
+<script src="data/mosquito.js"></script>
+<script src="data/mayfly.js"></script>
+<script src="data/bee.js"></script>
+<script src="data/krill.js"></script>
+<script src="data/anchovy.js"></script>
+<script src="data/cod.js"></script>
+<script src="data/salmon.js"></script>
+<script src="data/farmsalmon.js"></script>
+<script src="data/sparrow.js"></script>
+<script src="data/chicken.js"></script>
+<script src="data/mouse.js"></script>
+<script src="data/bat.js"></script>
+<script src="data/cow.js"></script>
+<script src="data/pig.js"></script>
+<script src="data/whale.js"></script>
+<script src="data/human.js"></script>
+<script src="art.js"></script>
+<script src="app.js"></script>
